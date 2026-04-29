@@ -1,10 +1,14 @@
 <?php
 require_once $_SERVER['DOCUMENT_ROOT'] . '/library/config/database.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/library/includes/auth.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/library/includes/pagination.php';
 
 requireLogin();
-$page_title = 'Borrow Records';
+$page_title   = 'Borrow Records';
 $librarian_id = $_SESSION['librarian_id'];
+
+$records_per_page = 15;
+$current_page     = max(1, intval($_GET['page'] ?? 1));
 
 $error = '';
 $success = '';
@@ -98,12 +102,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $books_query = "SELECT * FROM books WHERE available_copies > 0 ORDER BY title";
 $books = getRows($conn, $books_query);
 
+$count_result   = getRow($conn, "SELECT COUNT(*) as total FROM borrow_records");
+$total_records  = intval($count_result['total']);
+$offset         = ($current_page - 1) * $records_per_page;
+
 $query = "SELECT br.*, b.title as book_title, l.name as librarian_name
           FROM borrow_records br
           JOIN books b ON br.book_id = b.id
           JOIN librarians l ON br.librarian_id = l.id
-          ORDER BY br.created_at DESC";
-$records = getRows($conn, $query);
+          ORDER BY br.created_at DESC
+          LIMIT ? OFFSET ?";
+$records = getRows($conn, $query, [$records_per_page, $offset], 'ii');
 ?>
 <?php require_once '../includes/header.php'; ?>
 <?php require_once '../includes/sidebar.php'; ?>
@@ -175,6 +184,8 @@ $records = getRows($conn, $query);
                 </table>
             </div>
         <?php endif; ?>
+
+        <?php echo build_pagination($total_records, $records_per_page, $current_page, '/library/borrows/index.php?page=%d'); ?>
     </div>
 
     <!-- Add Borrow Modal -->

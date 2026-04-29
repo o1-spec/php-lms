@@ -1,11 +1,20 @@
 <?php
 require_once $_SERVER['DOCUMENT_ROOT'] . '/library/config/database.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/library/includes/auth.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/library/includes/pagination.php';
 
 requireLogin();
 $page_title = 'Reports';
 
+$records_per_page    = 10;
+$overdue_page        = max(1, intval($_GET['overdue_page'] ?? 1));
+$borrowers_page      = max(1, intval($_GET['borrowers_page'] ?? 1));
+
 $daily_fine = 100;
+
+$overdue_count_res  = getRow($conn, "SELECT COUNT(*) as total FROM borrow_records WHERE status = 'borrowed' AND due_date < CURDATE()");
+$total_overdue      = intval($overdue_count_res['total']);
+$overdue_offset     = ($overdue_page - 1) * $records_per_page;
 
 $overdue_query = "SELECT br.*, b.title as book_title,
                   DATEDIFF(CURDATE(), br.due_date) as days_overdue,
@@ -13,8 +22,9 @@ $overdue_query = "SELECT br.*, b.title as book_title,
                   FROM borrow_records br
                   JOIN books b ON br.book_id = b.id
                   WHERE br.status = 'borrowed' AND br.due_date < CURDATE()
-                  ORDER BY br.due_date ASC";
-$overdue_books = getRows($conn, $overdue_query, [$daily_fine], 'i');
+                  ORDER BY br.due_date ASC
+                  LIMIT ? OFFSET ?";
+$overdue_books = getRows($conn, $overdue_query, [$daily_fine, $records_per_page, $overdue_offset], 'iii');
 
 $borrowed_query = "SELECT b.id, b.title, b.author, COUNT(br.id) as borrow_count
                    FROM books b
@@ -24,6 +34,10 @@ $borrowed_query = "SELECT b.id, b.title, b.author, COUNT(br.id) as borrow_count
                    LIMIT 10";
 $most_borrowed = getRows($conn, $borrowed_query);
 
+$borrowers_count_res = getRow($conn, "SELECT COUNT(DISTINCT matric_number) as total FROM borrow_records WHERE status = 'borrowed'");
+$total_borrowers     = intval($borrowers_count_res['total']);
+$borrowers_offset    = ($borrowers_page - 1) * $records_per_page;
+
 $active_borrowers_query = "SELECT DISTINCT br.student_name, br.matric_number, br.department, 
                            COUNT(br.id) as active_borrows,
                            GROUP_CONCAT(b.title SEPARATOR ', ') as books_borrowed
@@ -31,8 +45,9 @@ $active_borrowers_query = "SELECT DISTINCT br.student_name, br.matric_number, br
                            JOIN books b ON br.book_id = b.id
                            WHERE br.status = 'borrowed'
                            GROUP BY br.matric_number
-                           ORDER BY active_borrows DESC";
-$active_borrowers = getRows($conn, $active_borrowers_query);
+                           ORDER BY active_borrows DESC
+                           LIMIT ? OFFSET ?";
+$active_borrowers = getRows($conn, $active_borrowers_query, [$records_per_page, $borrowers_offset], 'ii');
 
 $total_fines_query = "SELECT SUM(CASE 
                       WHEN status = 'borrowed' AND due_date < CURDATE() 
@@ -114,6 +129,8 @@ $stats = getRow($conn, $stats_query);
                     </table>
                 </div>
             <?php endif; ?>
+
+            <?php echo build_pagination($total_overdue, $records_per_page, $overdue_page, '/library/reports/index.php?overdue_page=%d&borrowers_page=' . $borrowers_page); ?>
         </div>
 
         <!-- Most Borrowed Books Section -->
@@ -182,6 +199,8 @@ $stats = getRow($conn, $stats_query);
                     </table>
                 </div>
             <?php endif; ?>
+
+            <?php echo build_pagination($total_borrowers, $records_per_page, $borrowers_page, '/library/reports/index.php?borrowers_page=%d&overdue_page=' . $overdue_page); ?>
         </div>
     </div>
 

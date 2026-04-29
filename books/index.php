@@ -1,9 +1,13 @@
 <?php
 require_once $_SERVER['DOCUMENT_ROOT'] . '/library/config/database.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/library/includes/auth.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/library/includes/pagination.php';
 
 requireLogin();
 $page_title = 'Books';
+
+$records_per_page = 15;
+$current_page     = max(1, intval($_GET['page'] ?? 1));
 
 $error = '';
 $success = '';
@@ -96,8 +100,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-$query = "SELECT * FROM books ORDER BY created_at DESC";
-$books = getRows($conn, $query);
+$count_result = getRow($conn, "SELECT COUNT(*) as total FROM books");
+$total_books  = intval($count_result['total']);
+$offset       = ($current_page - 1) * $records_per_page;
+
+$query = "SELECT * FROM books ORDER BY created_at DESC LIMIT ? OFFSET ?";
+$books = getRows($conn, $query, [$records_per_page, $offset], 'ii');
 
 ?>
 <?php require_once '../includes/header.php'; ?>
@@ -170,6 +178,8 @@ $books = getRows($conn, $query);
                 </table>
             </div>
         <?php endif; ?>
+
+        <?php echo build_pagination($total_books, $records_per_page, $current_page, '/library/books/index.php?page=%d'); ?>
     </div>
 
     <!-- Add Book Modal -->
