@@ -1,4 +1,5 @@
 <?php
+ob_start();
 require_once $_SERVER['DOCUMENT_ROOT'] . '/library/config/database.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/library/includes/auth.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/library/includes/pagination.php';
@@ -13,6 +14,10 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    ob_end_clean();
+    header('Content-Type: application/json');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    
     if ($_POST['action'] === 'add_book') {
         $title = trim($_POST['title'] ?? '');
         $author = trim($_POST['author'] ?? '');
@@ -21,23 +26,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $total_copies = intval($_POST['total_copies'] ?? 0);
         
         if (empty($title) || empty($author) || $total_copies <= 0) {
-            $error = 'Please fill in all required fields correctly';
-        } else {
-            $insert_query = "INSERT INTO books (title, author, isbn, category, total_copies, available_copies) 
-                      VALUES (?, ?, ?, ?, ?, ?)";
-            $stmt = $conn->prepare($insert_query);
+            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields correctly']);
+            exit();
+        }
+        
+        $insert_query = "INSERT INTO books (title, author, isbn, category, total_copies, available_copies) 
+                  VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $conn->prepare($insert_query);
+        
+        if ($stmt) {
+            $stmt->bind_param('ssssii', $title, $author, $isbn, $category, $total_copies, $total_copies);
             
-            if ($stmt) {
-                $stmt->bind_param('ssssii', $title, $author, $isbn, $category, $total_copies, $total_copies);
-                
-                if ($stmt->execute()) {
-                    $success = 'Book added successfully!';
-                } else {
-                    $error = 'Error adding book: ' . $stmt->error;
-                }
+            if ($stmt->execute()) {
+                echo json_encode(['success' => true, 'message' => 'Book added successfully!']);
+                exit();
             } else {
-                $error = 'Database error: ' . $conn->error;
+                echo json_encode(['success' => false, 'message' => 'Error adding book: ' . $stmt->error]);
+                exit();
             }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $conn->error]);
+            exit();
         }
     } elseif ($_POST['action'] === 'edit_book') {
         $book_id = intval($_POST['book_id']);
@@ -48,34 +57,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $total_copies = intval($_POST['total_copies'] ?? 0);
         
         if ($book_id <= 0 || empty($title) || empty($author) || $total_copies <= 0) {
-            $error = 'Please fill in all required fields correctly';
-        } else {
-            $check_query = "SELECT total_copies, available_copies FROM books WHERE id = ?";
-            $old_book = getRow($conn, $check_query, [$book_id], 'i');
+            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields correctly']);
+            exit();
+        }
+        
+        $check_query = "SELECT total_copies, available_copies FROM books WHERE id = ?";
+        $old_book = getRow($conn, $check_query, [$book_id], 'i');
+        
+        if ($old_book) {
+            $diff = $total_copies - $old_book['total_copies'];
+            $new_available = $old_book['available_copies'] + $diff;
             
-            if ($old_book) {
-                $diff = $total_copies - $old_book['total_copies'];
-                $new_available = $old_book['available_copies'] + $diff;
-                
-                if ($new_available < 0) {
-                    $error = 'Cannot reduce total copies below currently borrowed copies.';
-                } else {
-                    $update_query = "UPDATE books SET title=?, author=?, isbn=?, category=?, total_copies=?, available_copies=? WHERE id=?";
-                    $stmt = $conn->prepare($update_query);
-                    if ($stmt) {
-                        $stmt->bind_param('ssssiii', $title, $author, $isbn, $category, $total_copies, $new_available, $book_id);
-                        if ($stmt->execute()) {
-                            $success = 'Book updated successfully!';
-                        } else {
-                            $error = 'Error updating book: ' . $stmt->error;
-                        }
-                    } else {
-                        $error = 'Database error: ' . $conn->error;
-                    }
-                }
+            if ($new_available < 0) {
+                echo json_encode(['success' => false, 'message' => 'Cannot reduce total copies below currently borrowed copies.']);
+                exit();
             } else {
-                $error = 'Book not found';
+                $update_query = "UPDATE books SET title=?, author=?, isbn=?, category=?, total_copies=?, available_copies=? WHERE id=?";
+                $stmt = $conn->prepare($update_query);
+                if ($stmt) {
+                    $stmt->bind_param('ssssiii', $title, $author, $isbn, $category, $total_copies, $new_available, $book_id);
+                    if ($stmt->execute()) {
+                        echo json_encode(['success' => true, 'message' => 'Book updated successfully!']);
+                        exit();
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Error updating book: ' . $stmt->error]);
+                        exit();
+                    }
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Database error: ' . $conn->error]);
+                    exit();
+                }
             }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Book not found']);
+            exit();
         }
     } elseif ($_POST['action'] === 'delete') {
         $book_id = intval($_POST['book_id']);
@@ -113,7 +128,7 @@ $books = getRows($conn, $query, [$records_per_page, $offset], 'ii');
 
     <div class="page-header">
         <h1><span class="icon icon-books"></span> Books Management</h1>
-        <button class="btn btn-primary" data-modal-target="#addBookModal">+ Add New Book</button>
+        <a href="/library/books/add.php" class="btn btn-primary">+ Add New Book</a>
     </div>
 
     <div class="content-section">
@@ -167,14 +182,7 @@ $books = getRows($conn, $query, [$records_per_page, $offset], 'ii');
                                     </span>
                                 </td>
                                 <td>
-                                    <button class="btn-action btn-edit" 
-                                            data-id="<?php echo $book['id']; ?>"
-                                            data-title="<?php echo htmlspecialchars($book['title']); ?>"
-                                            data-author="<?php echo htmlspecialchars($book['author']); ?>"
-                                            data-isbn="<?php echo htmlspecialchars($book['isbn'] ?? ''); ?>"
-                                            data-category="<?php echo htmlspecialchars($book['category'] ?? ''); ?>"
-                                            data-copies="<?php echo $book['total_copies']; ?>"
-                                            onclick="openEditModal(this)">Edit</button>
+                                    <a href="/library/books/edit.php?id=<?php echo intval($book['id']); ?>" class="btn-action btn-edit">Edit</a>
                                     <button class="btn-action btn-delete" onclick="confirmDeleteBook(<?php echo intval($book['id']); ?>, '<?php echo addslashes(htmlspecialchars($book['title'])); ?>')">Delete</button>
                                 </td>
                             </tr>
@@ -185,97 +193,6 @@ $books = getRows($conn, $query, [$records_per_page, $offset], 'ii');
         <?php endif; ?>
 
         <?php echo build_pagination($total_books, $records_per_page, $current_page, '/library/books/index.php?page=%d'); ?>
-    </div>
-
-    <!-- Add Book Modal -->
-    <div id="addBookModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Add New Book</h2>
-                <button class="modal-close" data-modal-close>&times;</button>
-            </div>
-            <div class="modal-body">
-                <form method="POST" id="addBookForm">
-                    <input type="hidden" name="action" value="add_book">
-                    <div class="form-group">
-                        <label for="title">Book Title *</label>
-                        <input type="text" id="title" name="title" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="author">Author *</label>
-                        <input type="text" id="author" name="author" required>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="isbn">ISBN</label>
-                            <input type="text" id="isbn" name="isbn">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="category">Category</label>
-                            <input type="text" id="category" name="category">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="total_copies">Total Copies *</label>
-                        <input type="number" id="total_copies" name="total_copies" min="1" value="1" required>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-modal-close>Cancel</button>
-                <button type="submit" form="addBookForm" class="btn btn-primary">Add Book</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Book Modal -->
-    <div id="editBookModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Edit Book</h2>
-                <button class="modal-close" data-modal-close>&times;</button>
-            </div>
-            <div class="modal-body">
-                <form method="POST" id="editBookForm">
-                    <input type="hidden" name="action" value="edit_book">
-                    <input type="hidden" name="book_id" id="edit_book_id">
-                    <div class="form-group">
-                        <label for="edit_title">Book Title *</label>
-                        <input type="text" id="edit_title" name="title" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="edit_author">Author *</label>
-                        <input type="text" id="edit_author" name="author" required>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="edit_isbn">ISBN</label>
-                            <input type="text" id="edit_isbn" name="isbn">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="edit_category">Category</label>
-                            <input type="text" id="edit_category" name="category">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="edit_total_copies">Total Copies *</label>
-                        <input type="number" id="edit_total_copies" name="total_copies" min="1" required>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-modal-close>Cancel</button>
-                <button type="submit" form="editBookForm" class="btn btn-primary">Save Changes</button>
-            </div>
-        </div>
     </div>
 
     <!-- Delete Confirmation Modal -->

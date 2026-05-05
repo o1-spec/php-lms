@@ -19,6 +19,59 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!isValid) {
                 e.preventDefault();
                 alert('Please fill in all required fields');
+                return;
+            }
+            
+            // Check if this form has an action attribute and contains "index.php"
+            // If so, use Fetch API instead of regular form submission
+            const formAction = form.getAttribute('action');
+            if (formAction && (formAction.includes('books') || formAction.includes('borrows'))) {
+                e.preventDefault();
+                
+                // Disable submit button
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.dataset.originalText = submitBtn.textContent;
+                    submitBtn.textContent = 'Processing...';
+                }
+                
+                // Submit via Fetch API
+                const formData = new FormData(form);
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        // Close modal if open
+                        const modal = form.closest('.modal');
+                        if (modal) {
+                            modal.classList.remove('active');
+                        }
+                        // Reload page
+                        setTimeout(() => {
+                            location.reload();
+                        }, 500);
+                    } else {
+                        alert('Error: ' + data.message);
+                        // Re-enable submit button
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = submitBtn.dataset.originalText;
+                        }
+                    }
+                })
+                .catch(error => {
+                    alert('Error: ' + error.message);
+                    // Re-enable submit button
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = submitBtn.dataset.originalText;
+                    }
+                });
             }
         });
         
@@ -42,23 +95,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const submitButtons = document.querySelectorAll('button[type="submit"]');
     submitButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            if (this.form && this.form.checkValidity()) {
-                this.disabled = true;
-                this.style.opacity = '0.6';
-                this.style.cursor = 'not-allowed';
-                this.textContent = 'Processing...';
-                
-                // Re-enable button after 5 seconds if form didn't redirect
-                setTimeout(() => {
-                    this.disabled = false;
-                    this.style.opacity = '1';
-                    this.style.cursor = 'pointer';
-                    this.textContent = this.dataset.originalText || 'Submit';
-                }, 5000);
-            }
-        });
-        
         // Store original button text
         button.dataset.originalText = button.textContent;
     });

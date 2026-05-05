@@ -41,4 +41,3 @@ function getRows($conn, $query, $params = [], $types = '') {
     $result = $stmt->get_result();
     return $result->fetch_all(MYSQLI_ASSOC);
 }
-?>
