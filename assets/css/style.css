@@ -1,10 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
     --color-black: #111111;
@@ -33,7 +34,7 @@
     --shadow-lg: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
     
     --transition: all 0.2s ease;
-    --font-family: 'Inter', sans-serif;
+    --font-family: 'Montserrat', sans-serif;
 }
 
 html,
@@ -104,6 +105,9 @@ a:hover {
     font-weight: 800;
     color: var(--color-black);
     letter-spacing: -0.5px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 }
 
 .user-section {
@@ -184,6 +188,8 @@ a:hover {
     border-left: 3px solid transparent;
     transition: var(--transition);
     font-size: 0.875rem;
+    display: flex;
+    align-items: center;
     font-weight: 500;
 }
 
@@ -354,6 +360,9 @@ a:hover {
     font-size: 1.75rem;
     color: var(--color-black);
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
     margin: 0;
 }
 

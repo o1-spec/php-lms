@@ -1,10 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
     --color-black: #111111;
@@ -31,7 +32,7 @@
     --shadow-card: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
     
     --transition: all 0.2s ease;
-    --font-family: 'Inter', sans-serif;
+    --font-family: 'Poppins', sans-serif;
 }
 
 html,

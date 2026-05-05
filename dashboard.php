@@ -245,6 +245,9 @@ $low_stock = getRows($conn, $low_stock_query);
         color: var(--color-black);
         font-size: 16px;
         font-weight: 700;
+         display: flex;
+        flex-direction: row;
+        align-items: center;
     }
 
     .data-table-compact {
