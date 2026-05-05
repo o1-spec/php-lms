@@ -134,8 +134,13 @@ $records = getRows($conn, $query, [$records_per_page, $offset], 'ii');
 
         <?php if (!empty($success)): ?>
             <div class="alert alert-success">
-                <?php echo htmlspecialchars($success); ?>
+                <?php echo htmlspecialchars($success); ?> Reloading...
             </div>
+            <script>
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            </script>
         <?php endif; ?>
 
         <?php if (empty($records)): ?>

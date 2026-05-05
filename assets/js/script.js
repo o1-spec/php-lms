@@ -48,8 +48,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.style.opacity = '0.6';
                 this.style.cursor = 'not-allowed';
                 this.textContent = 'Processing...';
+                
+                // Re-enable button after 5 seconds if form didn't redirect
+                setTimeout(() => {
+                    this.disabled = false;
+                    this.style.opacity = '1';
+                    this.style.cursor = 'pointer';
+                    this.textContent = this.dataset.originalText || 'Submit';
+                }, 5000);
             }
         });
+        
+        // Store original button text
+        button.dataset.originalText = button.textContent;
     });
 
     // Modal Handling
